@@ -605,11 +605,15 @@ define(function (require, exports, module) {
         this.file = file;
         this.refreshText(rawText, initialTimestamp);
         
-        var ext = PathUtils.filenameExtension(this.file.fullPath);
-        this.language = Languages.getLanguageForFileExtension(ext);
-        
         // This is a good point to clean up any old dangling Documents
         _gcDocuments();
+        
+        var _this = this;
+        $(module.exports).on("fileNameChange", function (e, oldName, newName) {
+            if (file.fullPath === newName) {
+                _this.language = null;
+            }
+        });
     }
     
     /**
@@ -951,6 +955,10 @@ define(function (require, exports, module) {
      * @return {Language} An object describing the language used in this document
      */
     Document.prototype.getLanguage = function () {
+        if (!this.language) {
+            var ext = PathUtils.filenameExtension(this.file.fullPath);
+            this.language = Languages.getLanguageForFileExtension(ext);
+        }
         return this.language;
     };
     
@@ -1203,6 +1211,9 @@ define(function (require, exports, module) {
             FileUtils.updateFileEntryPath(_workingSet[i], oldName, newName);
         }
         
+        // Send a "fileNameChanged" event. This will trigger the views to update.
+        $(exports).triggerHandler("fileNameChange", [oldName, newName]);
+        
         // If the renamed file is shown in the current full editor, re-open that
         // This way everything that depends on the language will be updated (editor mode, JSLint, ...)
         var doc = getCurrentDocument();
@@ -1210,9 +1221,6 @@ define(function (require, exports, module) {
             closeFullEditor(doc.file);
             setCurrentDocument(doc);
         }
-        
-        // Send a "fileNameChanged" event. This will trigger the views to update.
-        $(exports).triggerHandler("fileNameChange", [oldName, newName]);
     }
 
     // Define public API
